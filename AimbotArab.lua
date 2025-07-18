@@ -1,10 +1,11 @@
--- الإعدادات
+-- إعدادات الخدمات
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
+-- المتغيرات الأساسية
 local FOV = 100
 local aimPart = "Head"
 local aimbotOn = false
@@ -79,6 +80,7 @@ partBtn.MouseButton1Click:Connect(function()
     partBtn.Text = "AimPart: " .. aimPart
 end)
 
+-- أزرار الإخفاء والإظهار
 local hideBtn = Instance.new("TextButton", mainFrame)
 hideBtn.Size = UDim2.new(0, 30, 0, 30)
 hideBtn.Position = UDim2.new(1, -35, 0, 5)
@@ -110,6 +112,7 @@ showBtn.MouseButton1Click:Connect(function()
     showBtn.Visible = false
 end)
 
+-- التحكم في السحب
 local dragging = false
 local dragStart, startPos
 showBtn.InputBegan:Connect(function(input)
@@ -117,7 +120,6 @@ showBtn.InputBegan:Connect(function(input)
         dragging = true
         dragStart = input.Position
         startPos = showBtn.Position
-
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
@@ -129,20 +131,20 @@ end)
 UserInputService.InputChanged:Connect(function(input)
     if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - dragStart
-        local newX = math.clamp(startPos.X.Offset + delta.X, 0, Camera.ViewportSize.X - showBtn.AbsoluteSize.X)
-        local newY = math.clamp(startPos.Y.Offset + delta.Y, 0, Camera.ViewportSize.Y - showBtn.AbsoluteSize.Y)
-        showBtn.Position = UDim2.new(0, newX, 0, newY)
+        showBtn.Position = UDim2.new(0, math.clamp(startPos.X.Offset + delta.X, 0, Camera.ViewportSize.X - showBtn.AbsoluteSize.X), 0, math.clamp(startPos.Y.Offset + delta.Y, 0, Camera.ViewportSize.Y - showBtn.AbsoluteSize.Y))
     end
 end)
 
+-- دائرة الفوف
 local fovCircle = Drawing.new("Circle")
-fovCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+fovCircle.Position = Camera.ViewportSize / 2
 fovCircle.Radius = FOV
 fovCircle.Color = Color3.fromRGB(0, 170, 255)
 fovCircle.Thickness = 2
 fovCircle.Filled = false
 fovCircle.Transparency = 1
 
+-- ESP & Tracer
 local espObjects = {}
 local function createESPBox(player)
     local box = Drawing.new("Square")
@@ -163,26 +165,18 @@ local function removeESPBox(player)
     end
 end
 
-local function isEnemy(player)
-    if teamCheckOn then
-        return player.Team ~= LocalPlayer.Team
-    end
-    return true
-end
-
 local function updateESP()
-    for _, player in pairs(Players:GetPlayers()) do
+    for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
             if not espObjects[player] then
                 createESPBox(player)
             end
             local esp = espObjects[player]
             local hrp = player.Character.HumanoidRootPart
-            local cf = hrp.CFrame
-            local pos, visible = Camera:WorldToViewportPoint(cf.Position)
+            local pos, visible = Camera:WorldToViewportPoint(hrp.Position)
             if visible and espOn then
-                local topLeft = Camera:WorldToViewportPoint((cf * CFrame.new(-2, 3, 0)).Position)
-                local bottomRight = Camera:WorldToViewportPoint((cf * CFrame.new(2, -3, 0)).Position)
+                local topLeft = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(-2, 3, 0)).Position)
+                local bottomRight = Camera:WorldToViewportPoint((hrp.CFrame * CFrame.new(2, -3, 0)).Position)
                 esp.Box.Position = Vector2.new(topLeft.X, topLeft.Y)
                 esp.Box.Size = Vector2.new(bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y)
                 esp.Box.Visible = true
@@ -202,7 +196,8 @@ end
 local function getClosestEnemy()
     local closest, shortest = nil, FOV
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and isEnemy(p) and p.Character and p.Character:FindFirstChild(aimPart) then
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(aimPart) and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+            if teamCheckOn and p.Team == LocalPlayer.Team then continue end
             local part = p.Character[aimPart]
             local pos, visible = Camera:WorldToViewportPoint(part.Position)
             if visible then
@@ -245,6 +240,6 @@ UserInputService.InputBegan:Connect(function(input)
     elseif input.KeyCode == Enum.KeyCode.RightBracket then
         FOV = math.min(300, FOV + 10)
     elseif input.KeyCode == Enum.KeyCode.Semicolon then
-        fovCircle.Color = Color3.fromRGB(math.random(0,255), math.random(0,255), math.random(0,255))
+        fovCircle.Color = Color3.fromRGB(math.random(0, 255), math.random(0, 255), math.random(0, 255))
     end
 end)
